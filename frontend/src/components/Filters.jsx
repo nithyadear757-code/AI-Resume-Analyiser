@@ -3,43 +3,39 @@ function Filters({
   onSearchChange,
   statusFilter,
   onStatusChange,
-  typeFilter,
-  onTypeChange,
+  priorityFilter,
+  onPriorityChange,
 }) {
   return (
-    <div className="card filters">
-      <div className="field">
-        <label htmlFor="search">Search by employee name or ID</label>
+    <div className="filters">
+      <div className="field search-field">
+        <label htmlFor="search">Search tasks</label>
         <input
           id="search"
-          type="text"
-          placeholder="e.g. Priya or EMP001"
+          type="search"
+          placeholder="Search by task title..."
           value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(event) => onSearchChange(event.target.value)}
         />
       </div>
 
       <div className="field">
         <label htmlFor="statusFilter">Status</label>
-        <select
-          id="statusFilter"
-          value={statusFilter}
-          onChange={(e) => onStatusChange(e.target.value)}
-        >
-          <option value="All">All</option>
+        <select id="statusFilter" value={statusFilter} onChange={(event) => onStatusChange(event.target.value)}>
+          <option value="All">All statuses</option>
           <option value="Pending">Pending</option>
-          <option value="Approved">Approved</option>
-          <option value="Rejected">Rejected</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
         </select>
       </div>
 
       <div className="field">
-        <label htmlFor="typeFilter">Leave type</label>
-        <select id="typeFilter" value={typeFilter} onChange={(e) => onTypeChange(e.target.value)}>
-          <option value="All">All</option>
-          <option value="Casual Leave">Casual Leave</option>
-          <option value="Sick Leave">Sick Leave</option>
-          <option value="Earned Leave">Earned Leave</option>
+        <label htmlFor="priorityFilter">Priority</label>
+        <select id="priorityFilter" value={priorityFilter} onChange={(event) => onPriorityChange(event.target.value)}>
+          <option value="All">All priorities</option>
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
         </select>
       </div>
     </div>

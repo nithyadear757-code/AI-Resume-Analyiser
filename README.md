@@ -1,93 +1,148 @@
-# Employee Leave Management System
+# Student Task Management System
 
-A full-stack web app to submit, review and track employee leave requests.
+A full-stack app for students to create, organize, and track coursework and personal tasks.
 
-**Stack:** React (Vite) + Axios, Node.js + Express, MongoDB (Mongoose), plain CSS.
+**Stack:** React, Vite, and Axios; Node.js and Express; MongoDB with Mongoose.
 
 ## Features
-- Submit, edit and delete leave requests
-- Approve / reject requests (status badges: Pending, Approved, Rejected)
-- Total leave days calculated automatically (start and end date both counted)
-- Search by employee name or ID; filter by status and leave type
-- Validation on both frontend and backend, with clear error messages
 
-## Folder structure
-```
-employee-leave-management/
-├── backend/   (Express API + Mongoose)
-└── frontend/  (React + Vite)
+- Create, view, edit, and delete tasks
+- Track status: Pending, In Progress, or Completed
+- Set Low, Medium, or High priority and a due date
+- Search task titles and filter by status and priority
+- Highlight overdue and due-today tasks that are not completed
+- Validate task input in the browser and API, with clear success and error messages
+- Show a task summary by status
+
+## Project structure
+
+```text
+student-task-management/
+├── backend/
+│   ├── controllers/       # Task API logic
+│   ├── middleware/        # API errors
+│   ├── models/            # Mongoose task model
+│   ├── routes/            # REST API routes
+│   ├── tests/             # Backend utility tests
+│   ├── utils/             # Task constants and date validation
+│   ├── .env.example
+│   └── server.js
+└── frontend/
+    ├── src/
+    │   ├── components/    # Form, filters, and task cards/list
+    │   ├── services/      # Task API client
+    │   └── utils/         # Date formatting and validation
+    └── index.html
 ```
 
-## Prerequisites
-Node.js 18+ (LTS), VS Code, a free MongoDB Atlas account.
+## Requirements
 
-## 1. MongoDB Atlas
-1. Create a free cluster at https://cloud.mongodb.com
-2. Database Access: add a user with a username and password.
-3. Network Access: add IP address `0.0.0.0/0` (allow from anywhere, for development).
-4. Connect -> Drivers -> copy the connection string, e.g.
-   `mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/leaveDB?retryWrites=true&w=majority`
-   (replace USER and PASSWORD, and add the database name `leaveDB` before the `?`).
+- Node.js 18 or later
+- MongoDB running locally, or a MongoDB Atlas connection string
 
-## 2. Backend
-Open a terminal in VS Code:
-```
-cd backend
-npm install
-```
-Open `backend/.env` and set your connection string:
-```
-PORT=5000
-MONGO_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/leaveDB?retryWrites=true&w=majority
-```
-Run it:
-```
-npm run dev
-```
-You should see `MongoDB connected` and `Server running on http://localhost:5000`.
+## Run locally
 
-## 3. Frontend
-Open a **second** terminal:
-```
-cd frontend
-npm install
-npm run dev
-```
-Open http://localhost:5173 in your browser.
+1. Install the dependencies:
+
+   ```powershell
+   cd backend
+   npm install
+   cd ..\frontend
+   npm install
+   ```
+
+2. Create `backend/.env` from `backend/.env.example` and set `MONGO_URI` to your local MongoDB URI or Atlas connection string:
+
+   ```dotenv
+   PORT=5000
+   MONGO_URI=mongodb://127.0.0.1:27017/studentTasks
+   ```
+
+   For Atlas, use the connection string provided by MongoDB Atlas and include the database name `studentTasks`.
+
+3. In one terminal, start the API:
+
+   ```powershell
+   cd backend
+   npm run dev
+   ```
+
+4. In a second terminal, start the React app:
+
+   ```powershell
+   cd frontend
+   npm run dev
+   ```
+
+5. Open [http://localhost:5173](http://localhost:5173). The API runs at [http://localhost:5000](http://localhost:5000).
+
+The frontend reads `VITE_API_URL` from `frontend/.env`; it defaults to `http://localhost:5000`.
 
 ## API
-| Method | URL | Description |
-|---|---|---|
-| POST | /leaves | Create a leave (status always starts as Pending) |
-| GET | /leaves | Get all leaves |
-| GET | /leaves?status=Pending | Filter by status |
-| GET | /leaves/:id | Get one leave |
-| PUT | /leaves/:id | Update fields and/or status |
-| DELETE | /leaves/:id | Delete a leave |
 
-Sample POST body:
+All endpoints return JSON. A task has `id`, `title`, `description`, `priority`, `status`, `dueDate`, `createdAt`, and `updatedAt`. New tasks default to `Medium` priority and `Pending` status when those values are omitted.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/tasks` | Create a task |
+| `GET` | `/tasks` | List all tasks, newest first |
+| `GET` | `/tasks?status=pending` | Filter by status |
+| `GET` | `/tasks?priority=high` | Filter by priority |
+| `GET` | `/tasks/:id` | Get one task |
+| `PUT` | `/tasks/:id` | Update one or more task fields |
+| `DELETE` | `/tasks/:id` | Delete a task |
+
+Example create request:
+
 ```json
 {
-  "employeeName": "Priya Sharma",
-  "employeeId": "EMP001",
-  "leaveType": "Sick Leave",
-  "startDate": "2026-10-15",
-  "endDate": "2026-10-17",
-  "reason": "Fever"
+  "title": "Finish biology assignment",
+  "description": "Complete questions 1 through 8 and review the diagrams.",
+  "priority": "High",
+  "status": "Pending",
+  "dueDate": "2026-10-20"
 }
 ```
-Approve with `PUT /leaves/:id` and body `{ "status": "Approved" }`.
 
-## Business rules
-- New requests start as Pending.
-- End date cannot be before start date; both dates are counted (15 Oct to 17 Oct = 3 days).
-- Only Casual Leave, Sick Leave, Earned Leave are accepted.
-- Only Pending, Approved, Rejected are accepted as status.
-- A request with invalid dates cannot be approved.
-- Invalid ID -> 400. Missing record -> 404. Required fields cannot be empty.
+Use one of the following exact values (case-insensitive in API requests):
 
-## Common errors
-- `MONGO_URI is missing`: edit `backend/.env`.
-- `MongoDB connection failed`: check the password, and that Atlas Network Access allows your IP.
-- Frontend says "Cannot reach the server": start the backend first.
-- `EADDRINUSE`: port 5000 is busy; change `PORT` in `backend/.env` and `VITE_API_URL` in `frontend/.env`.
+- Status: `Pending`, `In Progress`, `Completed`
+- Priority: `Low`, `Medium`, `High`
+
+The API accepts dates in `YYYY-MM-DD` format. Invalid dates and enum values receive a `400` response, malformed task IDs receive `400`, and a valid ID with no matching task receives `404`.
+
+## Assumptions and design decisions
+
+- A task title, description, priority, and due date are required. Titles are limited to 120 characters and descriptions to 2,000 characters.
+- A new task starts as `Pending` with `Medium` priority unless valid values are provided.
+- Due dates are date-only values, stored at UTC midnight. The browser compares the date against the student's local calendar day to display overdue and due-today indicators.
+- Completed tasks are not marked overdue.
+- Search and status/priority filters are applied in the browser after retrieving the task list. The API also supports status and priority query filters.
+- Tasks are not scoped to a user account; authentication and per-user ownership are outside this assignment's scope.
+
+## Tests
+
+Run backend utility tests:
+
+```powershell
+cd backend
+npm test
+```
+
+Build the frontend for production:
+
+```powershell
+cd frontend
+npm run build
+```
+
+## Demo video
+
+Record a short walkthrough showing task creation, title search, status and priority filters, editing, status changes, deletion, and the overdue indicator. Upload the recording to the submission platform or a shareable video host, then add the resulting link here before submission.
+
+## Possible future improvements
+
+- Add user accounts and private task lists
+- Add pagination and server-side title search
+- Add recurring tasks, reminders, and calendar views
+- Add automated API integration tests and deployment instructions
