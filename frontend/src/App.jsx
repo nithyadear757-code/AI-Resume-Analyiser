@@ -1,212 +1,236 @@
-import { useEffect, useMemo, useState } from 'react';
-import TaskForm from './components/TaskForm.jsx';
-import TaskList from './components/TaskList.jsx';
-import Filters from './components/Filters.jsx';
-import { createTask, deleteTask, getErrorMessage, getTasks, updateTask } from './services/taskService.js';
+import { useRef, useState } from 'react';
+import './App.css';
 
-const getTaskId = (task) => task.id || task._id;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const ACCEPTED_FILES = '.pdf,.docx,.txt';
 
 function App() {
-  const [tasks, setTasks] = useState([]);
-  const [editingTask, setEditingTask] = useState(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [priorityFilter, setPriorityFilter] = useState('All');
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [busyId, setBusyId] = useState(null);
-  const [formError, setFormError] = useState('');
-  const [pageError, setPageError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const fileInputRef = useRef(null);
+  const [resume, setResume] = useState(null);
+  const [jobDescription, setJobDescription] = useState('');
+  const [analysis, setAnalysis] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
-  const loadTasks = async () => {
+  const chooseFile = (file) => {
+    if (!file) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    if (!['pdf', 'docx', 'txt'].includes(extension)) {
+      setError('Choose a PDF, DOCX, or TXT resume.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Your resume must be smaller than 5 MB.');
+      return;
+    }
+    setResume(file);
+    setAnalysis(null);
+    setError('');
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
+    setAnalysis(null);
+
+    if (!resume) {
+      setError('Upload your resume to get started.');
+      return;
+    }
+    if (jobDescription.trim().length < 40) {
+      setError('Add a job description with at least 40 characters.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('resume', resume);
+    formData.append('jobDescription', jobDescription.trim());
+
     setLoading(true);
-    setPageError('');
     try {
-      setTasks(await getTasks());
-    } catch (error) {
-      setPageError(getErrorMessage(error));
+      const response = await fetch(`${API_URL}/api/analyze`, {
+        method: 'POST',
+        body: formData,
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Analysis could not be completed.');
+      setAnalysis(body);
+    } catch (requestError) {
+      setError(requestError.message || 'Could not connect to the analyzer. Make sure the backend is running.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadTasks();
-  }, []);
-
-  useEffect(() => {
-    if (!successMessage) return undefined;
-    const timer = setTimeout(() => setSuccessMessage(''), 3000);
-    return () => clearTimeout(timer);
-  }, [successMessage]);
-
-  const handleSubmit = async (formData) => {
-    setSubmitting(true);
-    setFormError('');
-    try {
-      if (editingTask) {
-        const updated = await updateTask(getTaskId(editingTask), formData);
-        setTasks((previous) =>
-          previous.map((task) => (getTaskId(task) === getTaskId(updated) ? updated : task))
-        );
-        setEditingTask(null);
-        setSuccessMessage('Task updated successfully');
-      } else {
-        const created = await createTask(formData);
-        setTasks((previous) => [created, ...previous]);
-        setSuccessMessage('Task created successfully');
-      }
-      return true;
-    } catch (error) {
-      setFormError(getErrorMessage(error));
-      return false;
-    } finally {
-      setSubmitting(false);
-    }
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setDragging(false);
+    chooseFile(event.dataTransfer.files[0]);
   };
-
-  const handleStatusChange = async (task, status) => {
-    const id = getTaskId(task);
-    setBusyId(id);
-    setPageError('');
-    try {
-      const updated = await updateTask(id, { status });
-      setTasks((previous) =>
-        previous.map((item) => (getTaskId(item) === getTaskId(updated) ? updated : item))
-      );
-      setSuccessMessage(`Task marked ${status.toLowerCase()}`);
-    } catch (error) {
-      setPageError(getErrorMessage(error));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleDelete = async (task) => {
-    if (!window.confirm(`Delete "${task.title}"? This action cannot be undone.`)) return;
-
-    const id = getTaskId(task);
-    setBusyId(id);
-    setPageError('');
-    try {
-      await deleteTask(id);
-      setTasks((previous) => previous.filter((item) => getTaskId(item) !== id));
-      if (editingTask && getTaskId(editingTask) === id) setEditingTask(null);
-      setSuccessMessage('Task deleted successfully');
-    } catch (error) {
-      setPageError(getErrorMessage(error));
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleEdit = (task) => {
-    setFormError('');
-    setEditingTask(task);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const visibleTasks = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return tasks.filter((task) => {
-      const matchesSearch = !query || task.title.toLowerCase().includes(query);
-      const matchesStatus = statusFilter === 'All' || task.status === statusFilter;
-      const matchesPriority = priorityFilter === 'All' || task.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [tasks, search, statusFilter, priorityFilter]);
-
-  const pendingCount = tasks.filter((task) => task.status === 'Pending').length;
-  const inProgressCount = tasks.filter((task) => task.status === 'In Progress').length;
-  const completedCount = tasks.filter((task) => task.status === 'Completed').length;
 
   return (
     <main className="app-shell">
-      <header className="app-header">
-        <div className="header-copy">
-          <p className="eyebrow">STUDENT WORKSPACE</p>
-          <h1>Task Manager<span>.</span></h1>
-          <p className="header-subtitle">A little structure goes a long way. Keep your studies moving.</p>
-        </div>
-        <div className="header-mark" aria-hidden="true"><span>TM</span></div>
+      <header className="topbar">
+        <a className="brand" href="#" aria-label="ClearCV home">
+          <span className="brand-icon" aria-hidden="true">c</span>
+          <span>clear<span>cv</span></span>
+        </a>
+        <div className="privacy-note"><span className="privacy-dot" /> Private by design. Analyzed on your server.</div>
+        <span className="local-badge">LOCAL ANALYSIS</span>
       </header>
 
-      {successMessage && <div className="alert alert-success" role="status">{successMessage}</div>}
-      {pageError && (
-        <div className="alert alert-error" role="alert">
-          {pageError}
-          <button className="link-btn" onClick={loadTasks}>Retry</button>
+      <section className="intro">
+        <div className="intro-copy">
+          <p className="eyebrow"><span className="eyebrow-line" /> YOUR NEXT CHAPTER STARTS HERE</p>
+          <h1>A clearer path<br />to <em>your next role.</em></h1>
+          <p className="intro-text">
+            See how your resume lines up with the role you want. Get a practical match score and clear, useful ways to strengthen your application.
+          </p>
+          <div className="trust-points">
+            <span><span className="check-mark">✓</span> No API key needed</span>
+            <span><span className="check-mark">✓</span> Your resume stays local</span>
+          </div>
         </div>
-      )}
-
-      <section className="overview" aria-label="Task summary">
-        <div className="overview-label">
-          <span className="eyebrow">YOUR OVERVIEW</span>
-          <strong>{tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}</strong>
-        </div>
-        <div className="stat">
-          <span className="stat-dot pending-dot" />
-          <span>Pending</span>
-          <strong>{pendingCount}</strong>
-        </div>
-        <div className="stat">
-          <span className="stat-dot progress-dot" />
-          <span>In progress</span>
-          <strong>{inProgressCount}</strong>
-        </div>
-        <div className="stat">
-          <span className="stat-dot completed-dot" />
-          <span>Completed</span>
-          <strong>{completedCount}</strong>
+        <div className="intro-art" aria-hidden="true">
+          <div className="art-orbit orbit-one" />
+          <div className="art-orbit orbit-two" />
+          <div className="art-document">
+            <span className="document-tag">YOUR RESUME</span>
+            <span className="document-line document-line-long" />
+            <span className="document-line document-line-medium" />
+            <span className="document-line document-line-short" />
+            <span className="document-highlight"><span>✓</span> A strong match</span>
+            <span className="document-line document-line-long" />
+            <span className="document-line document-line-medium" />
+          </div>
+          <span className="art-star star-one">✳</span>
+          <span className="art-star star-two">✦</span>
+          <span className="art-caption">SMALL STEPS. BIG CAREERS.</span>
         </div>
       </section>
 
-      <div className="main-layout">
-        <aside className="form-column">
-          <TaskForm
-            editingTask={editingTask}
-            onSubmit={handleSubmit}
-            onCancelEdit={() => {
-              setFormError('');
-              setEditingTask(null);
-            }}
-            submitting={submitting}
-            serverError={formError}
-          />
-          <p className="form-note"><span>*</span> Required fields. Tasks are saved to your database.</p>
-        </aside>
+      <section className="workspace">
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow muted-eyebrow">A BETTER APPLICATION BEGINS WITH A GOOD MATCH</p>
+            <h2>Let’s look at your fit.</h2>
+          </div>
+          <span className="step-label"><span>01</span> Add your details</span>
+        </div>
 
-        <section className="tasks-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">STAY ON TRACK</p>
-              <h2>Your tasks <span>({visibleTasks.length})</span></h2>
+        <form className="analysis-form" onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div className="field-column">
+              <div className="field-heading">
+                <label htmlFor="resume-upload">Your resume</label>
+                <span>PDF, DOCX or TXT · up to 5 MB</span>
+              </div>
+              <input
+                ref={fileInputRef}
+                className="visually-hidden"
+                id="resume-upload"
+                type="file"
+                accept={ACCEPTED_FILES}
+                onChange={(event) => chooseFile(event.target.files[0])}
+              />
+              <button
+                className={`upload-box ${dragging ? 'upload-box-dragging' : ''} ${resume ? 'upload-box-selected' : ''}`}
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+                aria-describedby="upload-hint"
+              >
+                <span className="upload-icon" aria-hidden="true">{resume ? '✓' : '↑'}</span>
+                <span className="upload-main">{resume ? resume.name : 'Drop your resume here'}</span>
+                <span className="upload-secondary">{resume ? `${(resume.size / 1024).toFixed(0)} KB · Click to change` : 'or click to browse your files'}</span>
+              </button>
+              <p className="field-hint" id="upload-hint">We read the text to compare your experience with the role.</p>
             </div>
-            <span className="task-total">{tasks.length} total</span>
+
+            <div className="field-column">
+              <div className="field-heading">
+                <label htmlFor="job-description">Job description</label>
+                <span>{jobDescription.length}/12,000</span>
+              </div>
+              <textarea
+                id="job-description"
+                className="job-description"
+                value={jobDescription}
+                onChange={(event) => setJobDescription(event.target.value.slice(0, 12000))}
+                placeholder={'Paste the job description here...\n\nInclude responsibilities and required skills for a more useful comparison.'}
+                minLength={40}
+                maxLength={12000}
+                required
+              />
+              <p className="field-hint">Tip: include the requirements and responsibilities, not just the job title.</p>
+            </div>
           </div>
 
-          <Filters
-            search={search}
-            onSearchChange={setSearch}
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            priorityFilter={priorityFilter}
-            onPriorityChange={setPriorityFilter}
-          />
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <div className="form-footer">
+            <p><span className="lock-icon" aria-hidden="true">▣</span> Your resume is processed in memory and not saved.</p>
+            <button className="analyze-button" type="submit" disabled={loading}>
+              {loading ? 'Reviewing your resume…' : 'Analyze my resume'}
+              {!loading && <span aria-hidden="true">↗</span>}
+            </button>
+          </div>
+        </form>
+      </section>
 
-          <TaskList
-            tasks={visibleTasks}
-            totalCount={tasks.length}
-            loading={loading}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onStatusChange={handleStatusChange}
-            busyId={busyId}
-          />
+      {analysis && (
+        <section className="results" aria-live="polite">
+          <div className="results-heading">
+            <div>
+              <p className="eyebrow muted-eyebrow">YOUR PERSONALIZED REVIEW</p>
+              <h2>Your match at a glance.</h2>
+              <p className="results-file">Review for <strong>{analysis.fileName}</strong></p>
+            </div>
+            <div className="score-card" aria-label={`Resume match score ${analysis.score} out of 100`}>
+              <span className="score-value">{analysis.score}<small>%</small></span>
+              <span className="score-label">MATCH SCORE</span>
+            </div>
+          </div>
+
+          <p className="results-summary">{analysis.summary}</p>
+
+          <div className="results-grid">
+            <article className="result-panel">
+              <div className="panel-heading"><span className="panel-icon matched-icon">✓</span><h3>Skills that match</h3><span>{analysis.matchedSkills.length}</span></div>
+              {analysis.matchedSkills.length ? (
+                <ul className="skill-list">{analysis.matchedSkills.map((skill) => <li key={skill}>{skill}</li>)}</ul>
+              ) : <p className="panel-empty">No matching skills were identified from the text provided.</p>}
+            </article>
+            <article className="result-panel">
+              <div className="panel-heading"><span className="panel-icon missing-icon">＋</span><h3>Skills to highlight</h3><span>{analysis.missingSkills.length}</span></div>
+              {analysis.missingSkills.length ? (
+                <ul className="skill-list missing-list">{analysis.missingSkills.map((skill) => <li key={skill}>{skill}</li>)}</ul>
+              ) : <p className="panel-empty">Great coverage. No additional listed skills to highlight.</p>}
+            </article>
+          </div>
+
+          <div className="advice-grid">
+            <article className="advice-panel">
+              <h3><span aria-hidden="true">✦</span> What’s working</h3>
+              {analysis.strengths.length ? <ul>{analysis.strengths.map((item) => <li key={item}>{item}</li>)}</ul> : <p>Add clear section headings and measurable accomplishments to help employers understand your experience.</p>}
+            </article>
+            <article className="advice-panel improvement-panel">
+              <h3><span aria-hidden="true">↗</span> Ways to improve</h3>
+              <ul>{analysis.suggestions.map((item) => <li key={item}>{item}</li>)}</ul>
+            </article>
+          </div>
+
+          <p className="method-note">{analysis.methodNote}</p>
         </section>
-      </div>
-      <footer className="app-footer">One task at a time. You have got this.</footer>
+      )}
+
+      <footer className="footer">
+        <span className="footer-brand">clear<span>cv</span></span>
+        <span>A thoughtful first step toward what’s next.</span>
+        <span>Built for your next chapter.</span>
+      </footer>
     </main>
   );
 }

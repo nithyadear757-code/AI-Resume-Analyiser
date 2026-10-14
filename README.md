@@ -1,148 +1,56 @@
-# Student Task Management System
+# AI Resume Analyzer
 
-A full-stack app for students to create, organize, and track coursework and personal tasks.
-
-**Stack:** React, Vite, and Axios; Node.js and Express; MongoDB with Mongoose.
-
-## Features
-
-- Create, view, edit, and delete tasks
-- Track status: Pending, In Progress, or Completed
-- Set Low, Medium, or High priority and a due date
-- Search task titles and filter by status and priority
-- Highlight overdue and due-today tasks that are not completed
-- Validate task input in the browser and API, with clear success and error messages
-- Show a task summary by status
-
-## Project structure
-
-```text
-student-task-management/
-├── backend/
-│   ├── controllers/       # Task API logic
-│   ├── middleware/        # API errors
-│   ├── models/            # Mongoose task model
-│   ├── routes/            # REST API routes
-│   ├── tests/             # Backend utility tests
-│   ├── utils/             # Task constants and date validation
-│   ├── .env.example
-│   └── server.js
-└── frontend/
-    ├── src/
-    │   ├── components/    # Form, filters, and task cards/list
-    │   ├── services/      # Task API client
-    │   └── utils/         # Date formatting and validation
-    └── index.html
-```
+ClearCV compares a resume with a job description and gives a skill-match score, matching and missing skills, and practical suggestions. Resume files are processed in memory by the local backend and are not saved.
 
 ## Requirements
 
 - Node.js 18 or later
-- MongoDB running locally, or a MongoDB Atlas connection string
+- npm (included with Node.js)
+
+Supported resume formats: PDF, DOCX, and TXT (maximum file size: 5 MB).
 
 ## Run locally
 
-1. Install the dependencies:
+Open two PowerShell terminals at the project root.
 
-   ```powershell
-   cd backend
-   npm install
-   cd ..\frontend
-   npm install
-   ```
-
-2. Create `backend/.env` from `backend/.env.example` and set `MONGO_URI` to your local MongoDB URI or Atlas connection string:
-
-   ```dotenv
-   PORT=5000
-   MONGO_URI=mongodb://127.0.0.1:27017/studentTasks
-   ```
-
-   For Atlas, use the connection string provided by MongoDB Atlas and include the database name `studentTasks`.
-
-3. In one terminal, start the API:
-
-   ```powershell
-   cd backend
-   npm run dev
-   ```
-
-4. In a second terminal, start the React app:
-
-   ```powershell
-   cd frontend
-   npm run dev
-   ```
-
-5. Open [http://localhost:5173](http://localhost:5173). The API runs at [http://localhost:5000](http://localhost:5000).
-
-The frontend reads `VITE_API_URL` from `frontend/.env`; it defaults to `http://localhost:5000`.
-
-## API
-
-All endpoints return JSON. A task has `id`, `title`, `description`, `priority`, `status`, `dueDate`, `createdAt`, and `updatedAt`. New tasks default to `Medium` priority and `Pending` status when those values are omitted.
-
-| Method | Endpoint | Description |
-| --- | --- | --- |
-| `POST` | `/tasks` | Create a task |
-| `GET` | `/tasks` | List all tasks, newest first |
-| `GET` | `/tasks?status=pending` | Filter by status |
-| `GET` | `/tasks?priority=high` | Filter by priority |
-| `GET` | `/tasks/:id` | Get one task |
-| `PUT` | `/tasks/:id` | Update one or more task fields |
-| `DELETE` | `/tasks/:id` | Delete a task |
-
-Example create request:
-
-```json
-{
-  "title": "Finish biology assignment",
-  "description": "Complete questions 1 through 8 and review the diagrams.",
-  "priority": "High",
-  "status": "Pending",
-  "dueDate": "2026-10-20"
-}
-```
-
-Use one of the following exact values (case-insensitive in API requests):
-
-- Status: `Pending`, `In Progress`, `Completed`
-- Priority: `Low`, `Medium`, `High`
-
-The API accepts dates in `YYYY-MM-DD` format. Invalid dates and enum values receive a `400` response, malformed task IDs receive `400`, and a valid ID with no matching task receives `404`.
-
-## Assumptions and design decisions
-
-- A task title, description, priority, and due date are required. Titles are limited to 120 characters and descriptions to 2,000 characters.
-- A new task starts as `Pending` with `Medium` priority unless valid values are provided.
-- Due dates are date-only values, stored at UTC midnight. The browser compares the date against the student's local calendar day to display overdue and due-today indicators.
-- Completed tasks are not marked overdue.
-- Search and status/priority filters are applied in the browser after retrieving the task list. The API also supports status and priority query filters.
-- Tasks are not scoped to a user account; authentication and per-user ownership are outside this assignment's scope.
-
-## Tests
-
-Run backend utility tests:
+In the first terminal, install and start the backend:
 
 ```powershell
-cd backend
-npm test
+Set-Location backend
+npm install
+npm run dev
 ```
 
-Build the frontend for production:
+In the second terminal, install and start the frontend:
 
 ```powershell
-cd frontend
+Set-Location frontend
+npm install
+npm run dev
+```
+
+Open the frontend URL printed by Vite, usually [http://localhost:5173](http://localhost:5173). The API listens on [http://localhost:5000](http://localhost:5000). Press `Ctrl+C` in each terminal to stop its server.
+
+No database, cloud service, or API key is required. To use a different API port, set `PORT` in `backend/.env` and `VITE_API_URL` in `frontend/.env` to match.
+
+## Create a production build
+
+```powershell
+Set-Location frontend
 npm run build
 ```
 
-## Demo video
+The frontend build is written to `frontend/dist`.
 
-Record a short walkthrough showing task creation, title search, status and priority filters, editing, status changes, deletion, and the overdue indicator. Upload the recording to the submission platform or a shareable video host, then add the resulting link here before submission.
+## Backend tests
 
-## Possible future improvements
+```powershell
+Set-Location backend
+npm test
+```
 
-- Add user accounts and private task lists
-- Add pagination and server-side title search
-- Add recurring tasks, reminders, and calendar views
-- Add automated API integration tests and deployment instructions
+## Analysis approach and privacy
+
+Analysis runs locally using a curated skills list, keyword matching, resume-section checks, and measurable-achievement cues. It is not a generative AI model and does not send documents to an external service. The backend keeps uploaded files in memory for the request, returns the analysis, and does not persist the resume. Scores are guidance, not hiring advice; verify every suggestion and only add skills that reflect your actual experience.
+
+The frontend and backend deliverables are packaged separately as `ai-resume-analyzer-frontend.zip` and `ai-resume-analyzer-backend.zip`. Each archive contains only its part of this analyzer and excludes local `.env` files and `node_modules`. To run the packages together, extract each archive into a folder named `frontend` and `backend` under the same parent folder, then follow the local run instructions above.
